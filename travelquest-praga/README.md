@@ -60,14 +60,14 @@ Manda el enlace por WhatsApp. Cada uno:
 
 Si alguien cambia de móvil o la reinstala, que toque su nombre en la lista: recupera su usuario.
 
-Antes de salir, que cada uno abra **Mapa → botón de descarga** con wifi para guardar el mapa
-del centro y usarlo sin datos.
+Antes de salir, que cada uno abra el **Mapa** con wifi y lo recorra un poco por el centro (cada día):
+las zonas que se ven quedan guardadas y luego se pueden ver sin datos.
 
 ## Qué incluye
 
 - **Plan**: los 6 días con mañana, tarde, noche y dónde comer. Todo editable por cualquiera.
   Al tocar un sitio se abre en el mapa; los restaurantes tienen «Cómo llegar» con Google Maps.
-- **Mapa**: todos los puntos por colores de día, ruta del día, hotel, tu ubicación y mapa sin conexión.
+- **Mapa** (OpenStreetMap, sin clave): todos los puntos por colores de día, ruta del día, hotel y tu ubicación. Las zonas ya vistas funcionan sin conexión.
 - **Gastos**: en euros o coronas, quién pagó y entre quién se divide. Calcula el mínimo de pagos para quedar en paz.
 - **Quiz y retos**: un quiz de calentamiento ya disponible y uno por día que se abre a las 18:00
   (hora de Praga) sobre lo visitado ese día, más un reto diario. Ranking del grupo.
@@ -79,14 +79,30 @@ del centro y usarlo sin datos.
 - Itinerario inicial: también en `data.js`, pero solo se carga la primera vez. Después se edita desde la app.
 - Si cambias archivos, sube el número de `VERSION` en `sw.js` para que los móviles se actualicen.
 
+## Avisos al móvil
+
+Quiz de las 18:00 (hora de Praga), gasto nuevo que te incluye, documento nuevo y cambios
+en el plan de hoy o de mañana. Cada uno los activa en **Ajustes → Avisos en el móvil**.
+En iPhone solo funcionan con la app instalada en la pantalla de inicio (iOS 16.4 o posterior).
+
+Configuración (una vez):
+1. Supabase → **Edge Functions → Deploy a new function → Via editor**. Nombre: `notify`.
+   Pega `supabase/functions/notify/index.ts` y despliega.
+2. En los ajustes de esa función, desactiva **Verify JWT / Enforce JWT verification**
+   (la función se protege con su propio secreto).
+3. **Edge Functions → Secrets**, añade:
+   - `VAPID_PUBLIC_KEY` = la clave pública (la misma que está en `app.js`)
+   - `VAPID_PRIVATE_KEY` = la clave privada
+   - `VAPID_SUBJECT` = `mailto:` + tu email
+   - `WEBHOOK_SECRET` = el mismo secreto que aparece en `supabase/push.sql`
+4. Edita en `supabase/push.sql` la línea marcada con `<<<` (pon tu código de proyecto) y ejecútalo en el SQL Editor.
+
 ## Privacidad
 
 Solo los miembros del viaje pueden leer y escribir sus datos (seguridad por filas en Supabase).
 Para unirse basta con el enlace de la app, así que no lo publiquéis en abierto.
-La búsqueda de direcciones usa OpenStreetMap (Nominatim) y el mapa usa teselas de CARTO.
+La búsqueda de direcciones usa OpenStreetMap (Nominatim) y el mapa usa las teselas de OpenStreetMap.
 
 ## Limitaciones conocidas
 
-- No hay notificaciones push: el aviso del quiz aparece dentro de la app.
 - Si dos personas editan el mismo plan a la vez, gana el último en guardar.
-# Prague-trip

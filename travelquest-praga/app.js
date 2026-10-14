@@ -70,7 +70,8 @@ const IC = {
 };
 const ic = (n, s = 22) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || ''}</svg>`;
 
-const SLOTS = [['manana', 'Mañana', 'sunrise'], ['tarde', 'Tarde', 'sun'], ['noche', 'Noche', 'moon'], ['comer', 'Dónde comer', 'food']];
+const SLOTS = [['manana', 'Mañana', 'sunrise'], ['comer', 'Comida', 'food'], ['tarde', 'Tarde', 'sun'], ['cena', 'Cena', 'food'], ['noche', 'Noche', 'moon']];
+const isFoodSlot = s => s === 'comer' || s === 'cena';
 const CATS = {
   comida: ['Comida', 'food', 't-orange'], bebida: ['Bebida', 'beer', 't-violet'], transporte: ['Transporte', 'tram', 't-blue'],
   entradas: ['Entradas', 'ticket', 't-coral'], alojamiento: ['Alojamiento', 'bed', 't-violet'], compras: ['Compras', 'bag', 't-green'], otros: ['Otros', 'dots', 't-gray']
@@ -80,7 +81,8 @@ const CATS = {
 const db = { trip: null, members: [], activities: [], expenses: [], payments: [], quiz_answers: [], challenges_done: [], docs: [] };
 let me = null, tripId = null, status = REMOTE ? 'connecting' : 'demo';
 let outbox = REMOTE ? LS.get('tq-outbox', []) : [];
-const ui = { tab: 'plan', day: null, mapDay: 0, focus: null, sheet: null, quiz: null, testMode: LS.get('tq-test', false), installDismissed: LS.get('tq-install-off', false) };
+const START_TAB = new URLSearchParams(location.search).get('tab');
+const ui = { tab: ['plan', 'mapa', 'docs', 'gastos', 'quiz'].includes(START_TAB) ? START_TAB : 'plan', day: null, mapDay: 0, focus: null, sheet: null, quiz: null, testMode: LS.get('tq-test', false), installDismissed: LS.get('tq-install-off', false) };
 const KEYS = { activities: ['id'], expenses: ['id'], payments: ['id'], members: ['id'], quiz_answers: ['member_id', 'quiz_id', 'q'], challenges_done: ['member_id', 'challenge_id'], docs: ['id'] };
 const keyOf = (t, r) => KEYS[t].map(k => r[k]).join('|');
 
@@ -262,7 +264,7 @@ async function doJoin() {
     const r = await sb.rpc('join_trip', { p_code: code, p_name: name });
     if (r.error) throw r.error;
     tripId = r.data.trip_id; me = r.data.member_id;
-    await refresh(); showApp(); subscribe(); flush();
+    await refresh(); showApp(); subscribe(); flush(); syncPushSub();
     toast(`¡Hola, ${name}!`);
   } catch (e) {
     const m = (e && e.message) || String(e);
@@ -387,8 +389,8 @@ function heroHtml() {
 function sortActs(list) { return list.slice().sort((a, b) => (a.position || 0) - (b.position || 0) || String(a.id).localeCompare(String(b.id))); }
 function actCard(a, d) {
   const by = a.updated_by && db.members.some(m => m.id === a.updated_by) ? `<div class="by"><span class="av sm" style="background:${esc(member(a.updated_by).color)}">${esc(member(a.updated_by).name[0])}</span>Editado por ${esc(member(a.updated_by).name)}</div>` : '';
-  const note = a.note && a.slot !== 'comer' ? `<div class="note">${ic('info', 16)}<span>${esc(a.note)}</span></div>` : '';
-  if (a.slot === 'comer') {
+  const note = a.note && !isFoodSlot(a.slot) ? `<div class="note">${ic('info', 16)}<span>${esc(a.note)}</span></div>` : '';
+  if (isFoodSlot(a.slot)) {
     const tierCls = a.tier === '€€' ? 'mid' : a.tier === '€€€' ? 'hi' : '';
     const q = a.title + ' ' + (a.address || 'Praga');
     return `<article class="card act resto"><div class="act-top"><div class="grow">
@@ -415,12 +417,12 @@ function scrPlan() {
   const slots = SLOTS.map(([k, l, i]) => {
     const list = sortActs(acts.filter(a => a.slot === k));
     return `<section class="slot"><div class="slot-h">${ic(i, 18)}${l}<span class="line"></span><button data-a="newAct" data-slot="${k}" aria-label="Añadir en ${l}">${ic('plus', 18)}</button></div>
-      ${list.length ? list.map(a => actCard(a, d)).join('') : `<button class="empty-slot" data-a="newAct" data-slot="${k}">${ic('plus', 18)}${k === 'comer' ? 'Añadir restaurante' : 'Añadir plan'}</button>`}</section>`;
+      ${list.length ? list.map(a => actCard(a, d)).join('') : `<button class="empty-slot" data-a="newAct" data-slot="${k}">${ic('plus', 18)}${isFoodSlot(k) ? (k === 'cena' ? 'Añadir sitio para cenar' : 'Añadir sitio para comer') : 'Añadir plan'}</button>`}</section>`;
   }).join('');
   const hotel = `<section class="info"><h2 class="sec" style="margin-top:0">Hotel</h2><div class="card"><div class="act-top"><span class="tile t-gray">${ic('bed')}</span><div class="grow"><b>${esc(D.hotel.name)}</b><br><small>${esc(D.hotel.address)} · ${esc(D.hotel.note)}</small></div></div>
     <div class="actions-row"><a class="btn btn-secondary btn-sm" href="${gmapsDir(D.hotel.lat, D.hotel.lng)}" target="_blank" rel="noopener">${ic('nav', 16)}Volver al hotel</a></div></div>
     <h2 class="sec">Precios orientativos</h2><div class="card">${D.tips.map(([k, v]) => `<div class="tr"><span class="grow">${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div></section>`;
-  return `${heroHtml()}${banner}${install}${chips}<div style="--dc:${d.color}"><div class="dayhead"><span class="dot">${ic(d.icon, 24)}</span><div><h2>${esc(d.label)}</h2><small>${esc(d.theme)}</small></div></div>${dayDocs(d)}${slots}</div>${hotel}
+  return `${heroHtml()}${banner}${install}${chips}<div style="--dc:${d.color}"><div class="dayhead"><span class="dot">${ic(d.icon, 24)}</span><div><h2>${esc(d.label)}</h2><small>${esc(d.theme)}${d.walk ? ' · ' + ic('walk', 14) + ' ' + esc(d.walk) + ' desde el hotel' : ''}</small></div></div>${dayDocs(d)}${slots}</div>${hotel}
     <p class="note2">${REMOTE ? 'Los cambios se comparten al momento con el grupo.' : 'Modo demo: los cambios solo se guardan en este dispositivo.'}</p>`;
 }
 
@@ -430,15 +432,15 @@ function dayDocs(d) {
 }
 function actForm(a, isNew) {
   const f = ui.sheet.f;
-  const isFood = f.slot === 'comer';
+  const isFood = isFoodSlot(f.slot);
   return `<h2>${isNew ? (isFood ? 'Nuevo restaurante' : 'Nuevo plan') : 'Editar'}</h2>
     <div class="lbl">Día</div><select class="field" id="fday">${D.days.map(d => `<option value="${d.date}" ${d.date === f.day ? 'selected' : ''}>${esc(d.label)} · ${esc(d.theme)}</option>`).join('')}</select>
-    <div class="lbl">Momento</div><div class="seg">${SLOTS.map(([k, l]) => `<button class="${f.slot === k ? 'on' : ''}" data-a="fslot" data-v="${k}">${k === 'comer' ? 'Comer' : l}</button>`).join('')}</div>
+    <div class="lbl">Momento</div><div class="seg">${SLOTS.map(([k, l]) => `<button class="${f.slot === k ? 'on' : ''}" data-a="fslot" data-v="${k}">${l}</button>`).join('')}</div>
     <div class="lbl">${isFood ? 'Nombre del sitio' : 'Título'}</div><input class="field" id="ftitle" value="${esc(f.title)}" placeholder="${isFood ? 'Lokál Dlouhááá' : 'Castillo de Praga'}">
     ${isFood ? `
       <div class="lbl">Descripción</div><input class="field" id="fnote" value="${esc(f.note)}" placeholder="Comida checa tradicional">
       <div class="lbl">Precio</div><div class="seg">${['€', '€€', '€€€'].map(t => `<button class="${f.tier === t ? 'on' : ''}" data-a="ftier" data-v="${t}">${t}</button>`).join('')}</div>
-      <input class="field" id="fprice" style="margin-top:8px" value="${esc(f.price)}" placeholder="Platos 9–15 € · Para 2: 25–35 €">
+      <input class="field" id="fprice" style="margin-top:8px" value="${esc(f.price)}" placeholder="12–18 € por persona">
       <div class="lbl">Dirección</div><input class="field" id="faddr" value="${esc(f.address)}" placeholder="Dlouhá 33, Praha 1">
       <div class="lbl">Ubicación en el mapa</div>
       <div class="locbox">${ic('pin', 18)}<span class="grow">${f.lat != null ? 'Fijada en el mapa' : 'Sin ubicación'}</span>${f.lat != null ? `<button class="btn btn-ghost btn-sm" data-a="locClear">Quitar</button>` : ''}</div>
@@ -469,12 +471,13 @@ function saveAct() {
   const f = ui.sheet.f, o = ui.sheet.orig;
   if (!f.title.trim()) { toast('Ponle un título'); return; }
   const old = {}; (o.items || []).forEach(i => { old[i.t.trim().toLowerCase()] = i; });
-  const items = f.slot === 'comer' ? [] : f.itemsText.split('\n').map(s => s.trim()).filter(Boolean).map(t => { const p = old[t.toLowerCase()]; return p && p.lat != null ? { t, lat: p.lat, lng: p.lng } : { t }; });
+  const food = isFoodSlot(f.slot);
+  const items = food ? [] : f.itemsText.split('\n').map(s => s.trim()).filter(Boolean).map(t => { const p = old[t.toLowerCase()]; return p && p.lat != null ? { t, lat: p.lat, lng: p.lng } : { t }; });
   const sameSlot = db.activities.filter(x => x.day === f.day && x.slot === f.slot && x.id !== o.id);
   const position = ui.sheet.isNew || o.day !== f.day || o.slot !== f.slot ? sameSlot.reduce((m, x) => Math.max(m, x.position || 0), 0) + 1 : (o.position || 0);
-  const row = { id: o.id, trip_id: tripId, day: f.day, slot: f.slot, position, title: f.title.trim(), time: f.slot === 'comer' ? null : (f.time.trim() || null), items, note: f.note.trim() || null,
-    price: f.slot === 'comer' ? (f.price.trim() || null) : null, tier: f.slot === 'comer' ? (f.tier || null) : null, address: f.slot === 'comer' ? (f.address.trim() || null) : null,
-    lat: f.slot === 'comer' ? f.lat : null, lng: f.slot === 'comer' ? f.lng : null, updated_by: me, updated_at: nowIso() };
+  const row = { id: o.id, trip_id: tripId, day: f.day, slot: f.slot, position, title: f.title.trim(), time: food ? null : (f.time.trim() || null), items, note: f.note.trim() || null,
+    price: food ? (f.price.trim() || null) : null, tier: food ? (f.tier || null) : null, address: food ? (f.address.trim() || null) : null,
+    lat: food ? f.lat : null, lng: food ? f.lng : null, updated_by: me, updated_at: nowIso() };
   closeSheet(); put('activities', row); toast(ui.sheet && ui.sheet.isNew ? 'Añadido al plan' : 'Guardado');
   const di = D.days.findIndex(d => d.date === f.day); if (di >= 0 && di !== ui.day) { ui.day = di; render(); }
 }
@@ -497,11 +500,11 @@ async function locSearch() {
 function mapPoints() {
   const pts = {};
   const add = (p) => { const k = p.lat.toFixed(4) + ',' + p.lng.toFixed(4) + '|' + p.name.toLowerCase(); if (pts[k]) { pts[k].subs.push(p.sub); } else pts[k] = { ...p, subs: [p.sub] }; };
-  const slotOrder = { manana: 0, tarde: 1, noche: 2, comer: 3 };
+  const slotOrder = { manana: 0, comer: 1, tarde: 2, cena: 3, noche: 4 };
   sortActs(db.activities).sort((a, b) => a.day.localeCompare(b.day) || slotOrder[a.slot] - slotOrder[b.slot]).forEach(a => {
     const di = D.days.findIndex(d => d.date === a.day); if (di < 0) return;
     if (ui.mapDay && ui.mapDay !== di + 1) return;
-    if (a.slot === 'comer') { if (a.lat != null) add({ name: a.title, sub: `Comer · ${D.days[di].short}`, lat: a.lat, lng: a.lng, di, food: true, q: a.title + ' ' + (a.address || 'Praga') }); }
+    if (isFoodSlot(a.slot)) { if (a.lat != null) add({ name: a.title, sub: `${a.slot === 'cena' ? 'Cena' : 'Comida'} · ${D.days[di].short}`, lat: a.lat, lng: a.lng, di, food: true, q: a.title + ' ' + (a.address || 'Praga') }); }
     else (a.items || []).forEach(it => { if (it.lat != null) add({ name: it.t, sub: `${a.title} · ${D.days[di].short}`, lat: it.lat, lng: it.lng, di, q: it.t + ', Praga' }); });
   });
   return Object.values(pts);
@@ -862,6 +865,61 @@ async function viewDoc(id) {
   }
 }
 
+/* ---------------- Avisos al móvil (push) ---------------- */
+const VAPID_PUBLIC = CFG.VAPID_PUBLIC_KEY || 'BDl8t06e--lIBO3Pk0ueN9Uffi6Su8UDaCeCqNyckmmhAYYb2j-T_ud_j_KiXMErNAfjima-WXl4GWwFHJqw920';
+const b64ToBytes = b => { const p = '='.repeat((4 - b.length % 4) % 4), s = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(s, c => c.charCodeAt(0)); };
+async function pushState() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return isIOS() && !isStandalone() ? 'ios-install' : 'unsupported';
+  if (isIOS() && !isStandalone()) return 'ios-install';
+  if (!REMOTE) return 'demo';
+  if (Notification.permission === 'denied') return 'denied';
+  try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); return sub && Notification.permission === 'granted' ? 'on' : 'off'; } catch (e) { return 'off'; }
+}
+async function saveSub(sub) {
+  const j = sub.toJSON();
+  const { error } = await sb.from('push_subs').upsert({ endpoint: j.endpoint, trip_id: tripId, member_id: me, p256dh: j.keys.p256dh, auth: j.keys.auth });
+  if (error) throw error;
+}
+async function enablePush() {
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { toast('Sin permiso no podemos avisarte. Puedes activarlo en los ajustes del móvil.'); return updatePushRow(); }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) }));
+    await saveSub(sub);
+    reg.showNotification('Avisos activados', { body: 'Te avisaremos del quiz de las 18:00, de los gastos que te incluyan, de los documentos nuevos y de los cambios en el plan de hoy y mañana.', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'tq-welcome' });
+    toast('Avisos activados en este móvil');
+  } catch (e) {
+    toast(isNet(e) ? 'Necesitas conexión para activar los avisos.' : /push_subs/.test(e.message || '') ? 'Falta ejecutar supabase/push.sql en Supabase.' : 'No se pudieron activar: ' + (e.message || e));
+  }
+  updatePushRow();
+}
+async function disablePush() {
+  try {
+    const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); }
+    toast('Avisos desactivados en este móvil');
+  } catch (e) { toast('No se pudieron desactivar'); }
+  updatePushRow();
+}
+async function syncPushSub() {
+  if (!REMOTE || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return;
+  try { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if (sub) await saveSub(sub); } catch (e) {}
+}
+async function updatePushRow() {
+  const el = $('#pushrow'); if (!el) return;
+  const st = await pushState();
+  const txt = {
+    on: ['Activados en este móvil', `<button class="tog on" data-a="pushOff" role="switch" aria-checked="true" aria-label="Avisos"></button>`],
+    off: ['Quiz de las 18:00, gastos que te incluyen, documentos nuevos y cambios en el plan de hoy y mañana.', `<button class="tog" data-a="pushOn" role="switch" aria-checked="false" aria-label="Avisos"></button>`],
+    denied: ['Los bloqueaste. Actívalos en los ajustes del móvil para esta app.', ''],
+    'ios-install': ['En iPhone, primero instala la app en la pantalla de inicio y ábrela desde el icono.', `<button class="btn btn-secondary btn-sm" data-a="install">Cómo</button>`],
+    unsupported: ['Este navegador no permite avisos.', ''],
+    demo: ['Disponibles cuando la app está conectada a Supabase.', '']
+  }[st];
+  el.innerHTML = `<span class="grow"><b>Avisos en el móvil</b><br><small>${txt[0]}</small></span>${txt[1]}`;
+}
+
 /* ---------------- Ajustes e instalación ---------------- */
 function settingsHtml() {
   const m = member(me);
@@ -871,6 +929,7 @@ function settingsHtml() {
     <div class="actions" style="margin-top:14px"><button class="btn btn-primary" data-a="invite">${ic('share', 18)}Invitar al grupo</button><button class="btn btn-secondary" data-a="install">${ic('phone', 18)}Instalar en el móvil</button></div>
     <div class="lbl">Cambio euro / corona</div><div style="display:flex;gap:8px"><input class="field" id="rate" inputmode="decimal" value="${String(rate()).replace('.', ',')}"><button class="btn btn-secondary" data-a="saveRate">Guardar</button></div>
     <small style="display:block;margin-top:6px">1 € = ${String(rate()).replace('.', ',')} Kč. Se usa para los gastos en coronas.</small>
+    <div class="switchrow" id="pushrow"><span class="grow"><b>Avisos en el móvil</b><br><small>Comprobando…</small></span></div>
     <div class="switchrow"><span class="grow"><b>Modo prueba</b><br><small>Desbloquea todos los quizzes y retos para verlos. No puntúa.</small></span><button class="tog ${ui.testMode ? 'on' : ''}" data-a="testMode" role="switch" aria-checked="${ui.testMode}" aria-label="Modo prueba"></button></div>
     <div class="actions"><button class="btn btn-ghost" data-a="leave">No soy ${esc(m.name)}</button></div>
     <p class="note2">${REMOTE ? 'Conectado con el grupo.' : 'Modo demo: configura Supabase en config.js para compartirlo.'} TravelQuest · Praga</p>`;
@@ -896,7 +955,9 @@ const A = {
   pickName: d => { $('#jname').value = d.n; },
   tab: d => { ui.tab = d.t; render(true); },
   day: d => { ui.day = +d.i; render(); },
-  settings: () => openSheet(settingsHtml()),
+  settings: () => { openSheet(settingsHtml()); updatePushRow(); },
+  pushOn: () => enablePush(),
+  pushOff: () => disablePush(),
   closeSheet,
   install: () => openSheet(installHtml()),
   hideInstall: () => { ui.installDismissed = true; LS.set('tq-install-off', true); closeSheet(); render(); },
@@ -908,7 +969,7 @@ const A = {
     try { await navigator.clipboard.writeText(text); toast('Enlace copiado'); } catch (e) { toast(url); }
   },
   saveRate: () => { const v = parseFloat(($('#rate').value || '').replace(',', '.')); if (!(v > 1 && v < 100)) { toast('Escribe un cambio válido, p. ej. 24,36'); return; } put('trips', { id: tripId, eur_czk: v }); closeSheet(); toast('Cambio guardado'); },
-  testMode: () => { ui.testMode = !ui.testMode; LS.set('tq-test', ui.testMode); openSheet(settingsHtml()); render(); },
+  testMode: () => { ui.testMode = !ui.testMode; LS.set('tq-test', ui.testMode); openSheet(settingsHtml()); updatePushRow(); render(); },
   leave: () => ask('¿Entrar con otro nombre en este dispositivo?', 'Cambiar de persona', () => { LS.del(CACHE_KEY); me = null; if (chan) { sb.removeChannel(chan); chan = null; } closeSheet(); showJoin(); }),
   // Plan
   newAct: d => openActForm(null, d.slot),
@@ -1018,6 +1079,7 @@ window.addEventListener('offline', () => setStatus('offline'));
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && REMOTE && tripId && me) { flush(); refresh().catch(() => setStatus('offline')); } });
 setInterval(() => { if (me && ui.tab !== 'mapa' && !$('#sheet').classList.contains('on') && !ui.quiz) render(); }, 60000);
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { const t = e.data && e.data.tab; if (t && me && ['plan', 'mapa', 'docs', 'gastos', 'quiz'].includes(t)) { ui.tab = t; render(true); if (REMOTE) refresh().catch(() => {}); } });
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }

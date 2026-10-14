@@ -20,50 +20,54 @@ window.TQ_DATA = (() => {
   };
   const it = (t, p) => p ? { t, lat: P[p][0], lng: P[p][1] } : { t };
   let n = 0;
-  const id = () => 'a0000000-0000-4000-8000-' + String(++n).padStart(12, '0');
+  const id = () => 'a0000002-0000-4000-8000-' + String(++n).padStart(12, '0');
   const A = (day, slot, title, items, extra = {}) => ({ id: id(), day, slot, position: 0, title, items, time: null, note: null, price: null, tier: null, address: null, lat: null, lng: null, ...extra });
-  const R = (day, title, desc, tier, price, address, latlng) => A(day, 'comer', title, [], { note: desc, tier, price, address, lat: latlng ? latlng[0] : null, lng: latlng ? latlng[1] : null });
+  const R = (day, slot, title, desc, tier, price, address, latlng) => A(day, slot, title, [], { note: desc, tier, price, address, lat: latlng ? latlng[0] : null, lng: latlng ? latlng[1] : null });
 
   const activities = [
-    // Martes 27
-    A('2026-10-27', 'manana', 'Llegada a Praga', [it('Traslado al hotel', 'airport'), it('Check-in', 'hotel'), it('Descanso')], { time: '≈14:00' }),
-    A('2026-10-27', 'tarde', 'Primer contacto con Praga', [it('Plaza de la Ciudad Vieja', 'oldTownSq'), it('Reloj Astronómico', 'clock'), it('Iglesia de Týn', 'tyn'), it('Paseo por calles del centro')]),
-    A('2026-10-27', 'noche', 'Puente de Carlos y Malá Strana', [it('Cruzar el Puente de Carlos iluminado', 'charlesBr'), it('Pequeña vuelta por Malá Strana', 'malaStrana'), it('Ambiente nocturno')]),
-    R('2026-10-27', 'Lokál Dlouhááá', 'Comida checa tradicional, cervezas y buen ambiente.', '€', 'Platos 9–15 € · Para 2: 25–35 €', 'Dlouhá 33, Praha 1', [50.0905, 14.4252]),
-    // Miércoles 28
-    A('2026-10-28', 'manana', 'Free tour por Ciudad Vieja y Barrio Judío', [it('Plaza de la Ciudad Vieja', 'oldTownSq'), it('Reloj Astronómico', 'clock'), it('Universidad Carlos', 'carolinum'), it('Torre de la Pólvora', 'powderTower'), it('Josefov y sinagogas (exterior)', 'josefov')], { time: '≈2,5 h', note: 'Hoy es fiesta nacional en Chequia (28 de octubre): puede haber más gente y algún horario especial.' }),
-    A('2026-10-28', 'tarde', 'Centro de Praga', [it('Torre de la Pólvora', 'powderTower'), it('Casa Municipal', 'municipal'), it('Plaza de Wenceslao', 'wenceslas'), it('Museo Nacional (por fuera)', 'natMuseum'), it('Calles de Nové Město', 'novemesto')]),
-    A('2026-10-28', 'noche', 'Café y ambiente en el centro', [it('Café Louvre (opcional)', 'louvre'), it('Cenar por la zona'), it('Ambiente nocturno')]),
-    R('2026-10-28', 'U Parlamentu', 'Restaurante checo en pleno centro.', '€', 'Platos 7–14 € · Para 2: 25–35 €', 'Valentinská 8, Praha 1', [50.0889, 14.4172]),
-    // Jueves 29
-    A('2026-10-29', 'manana', 'Malá Strana y alrededores', [it('Puente de Carlos (de día)', 'charlesBr'), it('Iglesia de San Nicolás', 'stNicholas'), it('Muro de John Lennon', 'lennon'), it('Isla Kampa', 'kampa'), it('Paseo junto al Moldava', 'riverWalk')]),
-    A('2026-10-29', 'tarde', 'Crucero por el Moldava', [it('Llegar a las 14:30 al embarque'), it('Vistas de los principales monumentos desde el río'), it('Relax y fotos')], { time: '15:00–16:50', note: 'Añade el punto de embarque cuando tengáis el billete.' }),
-    A('2026-10-29', 'noche', 'Ciudad Vieja de noche', [it('Paseo tranquilo'), it('Plaza de la Ciudad Vieja', 'oldTownSq')]),
-    R('2026-10-29', 'Restaurace U Mlynáře', 'Cocina checa con buenas vistas en Malá Strana.', '€€', 'Platos 10–18 € · Para 2: 30–40 €', 'Malá Strana, Praha 1', null),
-    // Viernes 30
-    A('2026-10-30', 'manana', 'Castillo de Praga', [it('Catedral de San Vito', 'stVitus'), it('Antiguo Palacio Real', 'oldPalace'), it('Basílica de San Jorge', 'stGeorge'), it('Callejón del Oro', 'goldenLane'), it('Vistas de Hradčany', 'hradcany')], { time: '9:00–13:00' }),
-    A('2026-10-30', 'tarde', 'Bajada a Malá Strana', [it('Calle Nerudova', 'nerudova'), it('Iglesia de San Nicolás', 'stNicholas'), it('Paseo hasta el centro'), it('Tiempo libre / comida')]),
-    A('2026-10-30', 'noche', 'Barrio Judío', [it('Sinagoga Española', 'spanishSyn'), it('Sinagoga Maisel', 'maiselSyn'), it('Sinagoga Pinkas', 'pinkasSyn'), it('Cementerio Judío', 'jewCemetery')], { time: 'hasta 16:30', note: 'Cierra a las 16:30 y no abre el sábado: id a primera hora de la tarde.' }),
-    R('2026-10-30', 'St. Martin', 'Cocina checa tradicional en Malá Strana.', '€€', 'Platos 12–18 € · Para 2: 30–40 €', 'Vlašská 7, Praha 1', [50.0870, 14.4000]),
-    // Sábado 31
-    A('2026-10-31', 'manana', 'Petřín y Strahov', [it('Funicular de Petřín', 'funicular'), it('Torre de Petřín', 'petrinTower'), it('Jardines y miradores', 'petrinGardens'), it('Monasterio de Strahov', 'strahov'), it('Vistas panorámicas de Praga')], { note: 'El funicular reabrió en septiembre de 2026 tras dos años de obras: 100 CZK el trayecto.' }),
-    A('2026-10-31', 'tarde', 'Tarde libre', [it('Bajar al centro'), it('Tiempo libre de compras'), it('Vinohrady (si apetece)', 'vinohrady'), it('Letná (si apetece)', 'letna')]),
-    A('2026-10-31', 'noche', 'Noche de Halloween', [it('Cena en el centro'), it('Disfrutar del ambiente'), it('Bares y vida nocturna')]),
-    R('2026-10-31', 'U Pivrnce', 'Comida checa tradicional muy cerca del hotel.', '€€', 'Platos 14–17 € · Para 2: 35–45 €', 'Maiselova 3, Praha 1', [50.0891, 14.4190]),
-    // Domingo 1
-    A('2026-11-01', 'manana', 'Vyšehrad', [it('Fortaleza y murallas', 'vysehrad'), it('Basílica de San Pedro y San Pablo', 'basilica'), it('Cementerio Slavín', 'slavin'), it('Vistas del Moldava', 'vysView')], { time: '≈2–3 h' }),
-    A('2026-11-01', 'tarde', 'Últimas horas en Praga', [it('Comida en el centro'), it('Última vuelta y compras'), it('Recoger maletas en el hotel', 'hotel')]),
-    A('2026-11-01', 'noche', 'Traslado al aeropuerto', [it('Salir aprox. 15:30–16:00', 'hotel'), it('Vuelo sobre las 19:00', 'airport')]),
-    R('2026-11-01', 'Café Savoy', 'Café histórico, ideal para una merienda o último café.', '€€', 'Platos 9–17 € · Para 2: 25–35 €', 'Vítězná 5, Praha 5', [50.0807, 14.4057])
+    // Martes 27 · Llegada y primer contacto
+    A('2026-10-27', 'manana', 'Llegada a Praga', [it('Traslado al hotel', 'airport'), it('Check-in y descanso', 'hotel')], { time: '≈14:00' }),
+    A('2026-10-27', 'tarde', 'Primer contacto con Praga', [it('Plaza de la Ciudad Vieja', 'oldTownSq'), it('Reloj Astronómico', 'clock'), it('Iglesia de Týn', 'tyn'), it('Paseo por el centro')], { time: '16:00 aprox.' }),
+    A('2026-10-27', 'noche', 'Puente de Carlos y Malá Strana', [it('Puente de Carlos iluminado', 'charlesBr'), it('Pequeña vuelta por Malá Strana', 'malaStrana')]),
+    R('2026-10-27', 'cena', 'Lokál Dlouhááá', 'Junto al hotel. Goulash, schnitzel y cerveza checa.', '€', '12–18 € por persona', 'Dlouhá 33, Praha 1', [50.0905, 14.4252]),
+    // Miércoles 28 · Ciudad Vieja y Josefov
+    A('2026-10-28', 'manana', 'Free tour en español', [it('Plaza de la Ciudad Vieja', 'oldTownSq'), it('Reloj Astronómico', 'clock'), it('Barrio Judío (exterior)', 'josefov')], { time: '10:00–12:30', note: 'Hoy es fiesta nacional en Chequia (28 de octubre): puede haber más gente y algún horario especial.' }),
+    R('2026-10-28', 'comer', 'U Parlamentu', 'Cerca del tour. Cocina checa tradicional.', '€', '10–15 € por persona', 'Valentinská 8, Praha 1', [50.0889, 14.4172]),
+    A('2026-10-28', 'tarde', 'Josefov y centro', [it('Sinagogas y Cementerio Judío (entrada)', 'pinkasSyn'), it('Torre de la Pólvora', 'powderTower'), it('Casa Municipal', 'municipal'), it('Plaza de Wenceslao', 'wenceslas'), it('Museo Nacional (exterior)', 'natMuseum')], { note: 'El Museo Judío cierra a las 16:30 y no abre el sábado: empezad la tarde por las sinagogas. Entrada unos 550 CZK (≈22 €).' }),
+    R('2026-10-28', 'cena', 'U Pivrnce', 'En el centro, cerca del hotel. Comida checa y ambiente local.', '€€', '15–22 € por persona', 'Maiselova 3, Praha 1', [50.0891, 14.4190]),
+    A('2026-10-28', 'noche', 'Café y ambiente en el centro', [it('Café Louvre (opcional)', 'louvre'), it('Ambiente en el centro')]),
+    // Jueves 29 · Malá Strana y crucero
+    A('2026-10-29', 'manana', 'Malá Strana', [it('Puente de Carlos (de día)', 'charlesBr'), it('Iglesia de San Nicolás', 'stNicholas'), it('Muro de John Lennon', 'lennon'), it('Isla Kampa', 'kampa'), it('Paseo por Malá Strana', 'malaStrana')]),
+    R('2026-10-29', 'comer', 'Restaurace U Mlynáře', 'Comida temprana en Malá Strana. Cocina checa con buenas vistas.', '€€', '12–18 € por persona', 'Nerudova 18, Praha 1', [50.0883, 14.4013]),
+    A('2026-10-29', 'tarde', 'Crucero por el Moldava', [it('14:30 embarque'), it('Crucero de 1 h 50 min'), it('Vistas de los monumentos desde el río')], { time: '15:00–16:50', note: 'Entrada unos 25 €. Añade el punto de embarque cuando tengáis el billete.' }),
+    R('2026-10-29', 'cena', 'Kozlovna Apropos', 'Cerca del Puente de Carlos. Cocina checa tradicional.', '€€', '15–22 € por persona', 'Křížovnická 4, Praha 1', [50.0878, 14.4161]),
+    A('2026-10-29', 'noche', 'Río y Ciudad Vieja iluminada', [it('Paseo por el río', 'riverWalk'), it('Ciudad Vieja iluminada', 'oldTownSq')]),
+    // Viernes 30 · Castillo de Praga
+    A('2026-10-30', 'manana', 'Castillo de Praga (entrada)', [it('Catedral de San Vito', 'stVitus'), it('Antiguo Palacio Real', 'oldPalace'), it('Basílica de San Jorge', 'stGeorge'), it('Callejón del Oro', 'goldenLane'), it('Vistas de Hradčany', 'hradcany')], { time: '9:00–13:00', note: 'Entrada unos 450 CZK (≈18 €).' }),
+    R('2026-10-30', 'comer', 'St. Martin', 'En Malá Strana. Cocina checa tradicional.', '€€', '12–18 € por persona', 'Vlašská 7, Praha 1', [50.0870, 14.4000]),
+    A('2026-10-30', 'tarde', 'Bajada a Malá Strana', [it('Bajada por Hradčany y calle Nerudova', 'nerudova'), it('Tiempo libre en Malá Strana', 'malaStrana'), it('Paseo junto al Moldava', 'riverWalk')]),
+    R('2026-10-30', 'cena', 'Restaurace U Černého vola', 'En Hradčany. Ambiente histórico.', '€€', '15–25 € por persona', 'Loretánské nám. 1, Praha 1', [50.0889, 14.3925]),
+    A('2026-10-30', 'noche', 'Noche en el centro', [it('Puente de Carlos o centro', 'charlesBr'), it('Ambiente nocturno')]),
+    // Sábado 31 · Petřín + Halloween
+    A('2026-10-31', 'manana', 'Petřín y Strahov', [it('Funicular de Petřín', 'funicular'), it('Torre de Petřín', 'petrinTower'), it('Jardines y miradores', 'petrinGardens'), it('Monasterio de Strahov', 'strahov')], { note: 'El funicular reabrió en septiembre de 2026 tras dos años de obras: 100 CZK el trayecto.' }),
+    R('2026-10-31', 'comer', 'Strahov Monastery Brewery', 'Junto al monasterio. Cocina checa y cerveza propia.', '€€', '12–18 € por persona', 'Strahovské nádvoří 301, Praha 1', [50.0864, 14.3890]),
+    A('2026-10-31', 'tarde', 'Tarde libre', [it('Bajada a Malá Strana', 'malaStrana'), it('Compras o visitas pendientes'), it('Vinohrady (si apetece)', 'vinohrady'), it('Letná (si apetece)', 'letna')]),
+    R('2026-10-31', 'cena', 'Mlejnice', 'En el centro, junto a la Plaza Vieja. Ideal para una cena especial.', '€€€', '18–30 € por persona', 'Kožná 14, Praha 1', [50.0858, 14.4209]),
+    A('2026-10-31', 'noche', 'Halloween en Praga', [it('Copas y ambiente')]),
+    // Domingo 1 · Vyšehrad y regreso
+    A('2026-11-01', 'manana', 'Vyšehrad', [it('Fortaleza y murallas', 'vysehrad'), it('Basílica de San Pedro y San Pablo', 'basilica'), it('Cementerio Slavín', 'slavin'), it('Vistas del Moldava', 'vysView')], { time: '9:30–12:30' }),
+    R('2026-11-01', 'comer', 'U Medvídků', 'En el centro. Cocina checa y cerveza histórica.', '€€', '12–20 € por persona', 'Na Perštýně 7, Praha 1', [50.0829, 14.4193]),
+    A('2026-11-01', 'tarde', 'Últimas horas en Praga', [it('Última vuelta por la Ciudad Vieja', 'oldTownSq'), it('Compras de recuerdos'), it('Recoger maletas en el hotel', 'hotel')], { time: 'hasta 15:30–16:00' }),
+    A('2026-11-01', 'noche', 'Traslado al aeropuerto', [it('Salir del hotel aprox. 16:00', 'hotel'), it('Vuelo sobre las 19:00', 'airport')])
   ];
 
   const days = [
-    { date: '2026-10-27', label: 'Martes 27', short: 'Mar 27', theme: 'Llegada', tag: 'Llegada', color: '#E0473C', icon: 'plane' },
-    { date: '2026-10-28', label: 'Miércoles 28', short: 'Mié 28', theme: 'Free tour', tag: 'Free tour', color: '#2B59FF', icon: 'walk' },
-    { date: '2026-10-29', label: 'Jueves 29', short: 'Jue 29', theme: 'Crucero por el Moldava', tag: 'Crucero', color: '#2E9E3A', icon: 'boat' },
-    { date: '2026-10-30', label: 'Viernes 30', short: 'Vie 30', theme: 'Castillo + Josefov', tag: 'Castillo', color: '#E07F00', icon: 'castle' },
-    { date: '2026-10-31', label: 'Sábado 31', short: 'Sáb 31', theme: 'Petřín + Halloween', tag: 'Halloween', color: '#8A4FD8', icon: 'tower' },
-    { date: '2026-11-01', label: 'Domingo 1', short: 'Dom 1', theme: 'Regreso', tag: 'Regreso', color: '#0E7CB5', icon: 'plane' }
+    { date: '2026-10-27', label: 'Martes 27', short: 'Mar 27', theme: 'Llegada y primer contacto', tag: 'Llegada', walk: '5–10 min', color: '#E0473C', icon: 'plane' },
+    { date: '2026-10-28', label: 'Miércoles 28', short: 'Mié 28', theme: 'Ciudad Vieja y Josefov', tag: 'Josefov', walk: '0–15 min (todo el día)', color: '#2B59FF', icon: 'walk' },
+    { date: '2026-10-29', label: 'Jueves 29', short: 'Jue 29', theme: 'Malá Strana y crucero', tag: 'Crucero', walk: '10–20 min (por el puente)', color: '#2E9E3A', icon: 'boat' },
+    { date: '2026-10-30', label: 'Viernes 30', short: 'Vie 30', theme: 'Castillo de Praga', tag: 'Castillo', walk: '20–30 min (o tranvía)', color: '#E07F00', icon: 'castle' },
+    { date: '2026-10-31', label: 'Sábado 31', short: 'Sáb 31', theme: 'Petřín + Halloween', tag: 'Halloween', walk: '20–30 min (o tranvía y funicular)', color: '#8A4FD8', icon: 'tower' },
+    { date: '2026-11-01', label: 'Domingo 1', short: 'Dom 1', theme: 'Vyšehrad y regreso', tag: 'Regreso', walk: '0–10 min (centro)', color: '#0E7CB5', icon: 'plane' }
   ];
 
   const hotel = { name: 'Hotel Caruso Old Town', address: 'U Milosrdných 2, Praha 1', note: '4*, desayuno incluido. Junto a Josefov.', lat: P.hotel[0], lng: P.hotel[1] };
@@ -72,7 +76,10 @@ window.TQ_DATA = (() => {
     ['Comida económica', '7–12 € por persona'],
     ['Comida normal', '12–18 € por persona'],
     ['Cena especial', '20–30 € por persona'],
-    ['Cerveza local (0,5 l)', '1,5–3,5 €; en restaurante, 2–4 €']
+    ['Cerveza local (0,5 l)', '1,5–3,5 €; en restaurante, 2–4 €'],
+    ['Castillo de Praga', '450 CZK (≈18 €)'],
+    ['Museo Judío (sinagogas)', '550 CZK (≈22 €)'],
+    ['Crucero por el Moldava', '≈25 €']
   ];
 
   // Quizzes: 'pre' disponible ya; los de cada día se desbloquean a las 18:00 (hora de Praga).
@@ -91,9 +98,9 @@ window.TQ_DATA = (() => {
       { q: '¿Cuántas estatuas y grupos escultóricos adornan el Puente de Carlos?', o: ['12', '20', '30', '44'], a: 2, e: 'Treinta, casi todas barrocas. Hoy la mayoría son réplicas; los originales están en museos.' },
       { q: '¿Qué santo fue arrojado al Moldava desde el puente, según la tradición?', o: ['San Wenceslao', 'San Juan Nepomuceno', 'San Vito', 'San Jorge'], a: 1, e: 'San Juan Nepomuceno, en 1393. Tocar la placa de bronce de su estatua da buena suerte.' }
     ]},
-    { id: 'd28', day: '2026-10-28', title: 'Free tour y centro', qs: [
+    { id: 'd28', day: '2026-10-28', title: 'Josefov y centro', qs: [
       { q: 'Hoy, 28 de octubre, es fiesta nacional en Chequia. ¿Qué se celebra?', o: ['La Revolución de Terciopelo', 'La fundación de Checoslovaquia en 1918', 'La entrada en la UE', 'La coronación de Carlos IV'], a: 1, e: 'El 28 de octubre de 1918 se proclamó la independencia de Checoslovaquia, precisamente en la Casa Municipal que habéis visto hoy.' },
-      { q: '¿En qué año se fundó la Universidad Carlos?', o: ['1348', '1492', '1618', '1918'], a: 0, e: 'En 1348. Es la universidad más antigua de Europa central.' },
+      { q: 'En las paredes de la Sinagoga Pinkas están escritos los nombres de...', o: ['Los rabinos de Praga', 'Casi 80.000 víctimas judías del Holocausto de Bohemia y Moravia', 'Los fundadores del barrio', 'Los benefactores de la sinagoga'], a: 1, e: 'Es un memorial con los nombres de casi 80.000 víctimas judías de Bohemia y Moravia.' },
       { q: '¿Por qué la Torre de la Pólvora se llama así?', o: ['Explotó en 1700', 'Se usó para almacenar pólvora', 'La construyó un fabricante de armas', 'Por su color gris'], a: 1, e: 'En el siglo XVII se usó como almacén de pólvora y le quedó el nombre.' },
       { q: '¿Qué acontecimiento de 1989 tuvo su gran escenario en la Plaza de Wenceslao?', o: ['La caída del Muro de Berlín', 'La Revolución de Terciopelo', 'La Primavera de Praga', 'Un concierto de los Rolling Stones'], a: 1, e: 'La Revolución de Terciopelo, que acabó pacíficamente con el régimen comunista.' },
       { q: 'Según la leyenda del Barrio Judío, ¿qué creó el rabino Loew con barro del Moldava?', o: ['Un dragón', 'Un gólem', 'Un reloj mágico', 'Un puente'], a: 1, e: 'El Gólem, un gigante de barro que protegía el gueto. Dicen que sus restos siguen en el desván de la Sinagoga Vieja-Nueva.' }
@@ -105,12 +112,12 @@ window.TQ_DATA = (() => {
       { q: '¿Cómo se llama el canal que separa la Isla Kampa de Malá Strana?', o: ['Čertovka, el Canal del Diablo', 'Canal del Rey', 'Canal de los Molinos de Oro', 'Vltavka'], a: 0, e: 'Čertovka, «la diablilla». Desde ella se ve una noria de molino.' },
       { q: '¿Qué compositor checo dedicó al Moldava uno de sus poemas sinfónicos más famosos?', o: ['Antonín Dvořák', 'Bedřich Smetana', 'Leoš Janáček', 'Mozart'], a: 1, e: 'Bedřich Smetana, en el ciclo «Mi patria». Seguro que lo habéis oído en algún anuncio.' }
     ]},
-    { id: 'd30', day: '2026-10-30', title: 'Castillo y Barrio Judío', qs: [
+    { id: 'd30', day: '2026-10-30', title: 'Castillo y Hradčany', qs: [
       { q: '¿Qué récord tiene el Castillo de Praga?', o: ['Castillo más alto de Europa', 'Mayor complejo de castillo antiguo del mundo', 'Castillo con más torres', 'Castillo más visitado de Europa'], a: 1, e: 'El Guinness lo reconoce como el mayor complejo de castillo antiguo del mundo.' },
       { q: '¿Cuándo se terminó la Catedral de San Vito, empezada en 1344?', o: ['1420', '1650', '1800', '1929'], a: 3, e: 'En 1929, casi 600 años después de colocar la primera piedra.' },
       { q: '¿Qué escritor vivió y escribió en la casa número 22 del Callejón del Oro?', o: ['Kafka', 'Kundera', 'Rilke', 'Hašek'], a: 0, e: 'Franz Kafka trabajó allí en 1916 y 1917, en la casa de su hermana Ottla.' },
       { q: '¿Qué poeta chileno tomó su seudónimo del escritor que da nombre a la calle Nerudova?', o: ['Gabriela Mistral', 'Pablo Neruda', 'Vicente Huidobro', 'Nicanor Parra'], a: 1, e: 'Ricardo Neftalí Reyes adoptó el nombre de Pablo Neruda inspirado por el escritor checo Jan Neruda.' },
-      { q: 'En las paredes de la Sinagoga Pinkas están escritos los nombres de...', o: ['Los rabinos de Praga', 'Casi 80.000 víctimas judías del Holocausto de Bohemia y Moravia', 'Los fundadores del barrio', 'Los benefactores de la sinagoga'], a: 1, e: 'Es un memorial con los nombres de casi 80.000 víctimas judías de Bohemia y Moravia.' }
+      { q: 'Las joyas de la Corona de Bohemia se guardan en la Catedral de San Vito. ¿Cuántas llaves hacen falta para abrir su cámara?', o: ['Una', 'Tres', 'Siete', 'Doce'], a: 2, e: 'Siete, repartidas entre siete personas, entre ellas el presidente de la República y el arzobispo de Praga.' }
     ]},
     { id: 'd31', day: '2026-10-31', title: 'Petřín, Strahov y Halloween', qs: [
       { q: '¿En qué monumento se inspiró la Torre de Petřín?', o: ['El Big Ben', 'La Torre Eiffel', 'La Torre de Pisa', 'La Torre de Londres'], a: 1, e: 'En la Torre Eiffel. Se construyó en 1891 para la Exposición del Jubileo.' },

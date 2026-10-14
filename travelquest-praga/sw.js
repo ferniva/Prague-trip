@@ -1,6 +1,6 @@
 /* Service worker: la app funciona sin conexión con lo último que se cargó.
    Sube el número de versión si cambias la lista de archivos. */
-const VERSION = 'tq-praga-v4';
+const VERSION = 'tq-praga-v5';
 const SHELL = ['./', 'index.html', 'app.js', 'data.js', 'config.js', 'manifest.webmanifest',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/supabase.js', 'vendor/pdf.min.mjs', 'vendor/pdf.worker.min.mjs',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
@@ -63,4 +63,22 @@ self.addEventListener('fetch', e => {
     })());
   }
   // Supabase y el resto: directo a la red.
+});
+
+// Avisos al móvil
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: 'Praga Trip', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Praga Trip', {
+    body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag, data: { tab: d.tab || 'plan' }
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const tab = (e.notification.data && e.notification.data.tab) || 'plan';
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) { if ('focus' in c) { c.postMessage({ tab }); return c.focus(); } }
+    return self.clients.openWindow('./?tab=' + tab);
+  })());
 });
