@@ -38,7 +38,7 @@ create table if not exists activities (
   id          uuid primary key,
   trip_id     uuid not null references trips(id) on delete cascade,
   day         date not null,
-  slot        text not null check (slot in ('manana','tarde','noche','comer')),
+  slot        text not null check (slot in ('manana','comer','tarde','cena','noche')),
   position    int  not null default 0,
   title       text not null,
   time        text,
@@ -214,3 +214,7 @@ end $$;
 insert into trips(name, start_date, end_date, join_code, eur_czk)
 values ('Praga', '2026-10-27', '2026-11-01', 'PRAGA-BVHMWG', 24.36)
 on conflict (join_code) do nothing;
+
+
+-- ---------- Documentos y fotos ----------
+-- Ejecuta también supabase/files.sql (tabla de documentos y almacenamiento de archivos).
