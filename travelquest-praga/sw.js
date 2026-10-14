@@ -1,10 +1,10 @@
 /* Service worker: la app funciona sin conexión con lo último que se cargó.
    Sube el número de versión si cambias la lista de archivos. */
-const VERSION = 'tq-praga-v1';
+const VERSION = 'tq-praga-v2';
 const SHELL = ['./', 'index.html', 'app.js', 'data.js', 'config.js', 'manifest.webmanifest',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/supabase.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
-const TILES = 'tq-tiles', FONTS = 'tq-fonts';
+const TILES = 'tq-tiles-osm', FONTS = 'tq-fonts';
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -39,7 +39,7 @@ self.addEventListener('fetch', e => {
   }
 
   // Mapa: lo ya visto queda guardado.
-  if (url.hostname.endsWith('basemaps.cartocdn.com')) {
+  if (url.hostname === 'tile.openstreetmap.org') {
     e.respondWith((async () => {
       const cache = await caches.open(TILES);
       const hit = await cache.match(req.url);

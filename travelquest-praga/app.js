@@ -501,7 +501,7 @@ function pinIcon(p) {
 }
 const popHtml = p => `<div class="pop"><b>${esc(p.name)}</b>${p.subs.map(s => `<small style="display:block">${esc(s)}</small>`).join('')}<div class="pbtns"><a class="go" href="${gmapsDir(p.lat, p.lng)}" target="_blank" rel="noopener">Cómo llegar</a><a href="${gmapsSearch(p.q)}" target="_blank" rel="noopener">Google Maps</a></div></div>`;
 let mapLayer = null, meMarker = null;
-const TILE = (dark) => dark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const TILE = () => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const darkMode = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 function renderMap() {
   const scr = $('#screen');
@@ -509,9 +509,9 @@ function renderMap() {
   if (!mapObj) {
     scr.classList.add('map-mode'); scr.scrollTop = 0;
     scr.innerHTML = `<div id="map"></div><div class="mapbar" id="mapbar"></div>
-      <div class="mapbtns"><button class="mapbtn" data-a="locate" aria-label="Mi ubicación">${ic('locate')}</button><button class="mapbtn" data-a="fit" aria-label="Ver todo">${ic('expand')}</button><button class="mapbtn" data-a="offlineMap" aria-label="Guardar mapa sin conexión">${ic('download')}</button></div>`;
+      <div class="mapbtns"><button class="mapbtn" data-a="locate" aria-label="Mi ubicación">${ic('locate')}</button><button class="mapbtn" data-a="fit" aria-label="Ver todo">${ic('expand')}</button></div>`;
     mapObj = L.map('map', { zoomControl: false, attributionControl: true }).setView([50.087, 14.415], 14);
-    L.tileLayer(TILE(darkMode()), { subdomains: 'abcd', maxZoom: 19, crossOrigin: true, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>' }).addTo(mapObj);
+    L.tileLayer(TILE(), { maxZoom: 19, crossOrigin: true, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(mapObj);
     mapLayer = L.layerGroup().addTo(mapObj);
     mapObj.attributionControl.setPrefix(false);
   }
@@ -542,21 +542,6 @@ function drawMarkers(fit) {
   }
   setTimeout(() => mapObj && mapObj.invalidateSize(), 50);
 }
-async function downloadTiles() {
-  const zooms = [13, 14, 15, 16], bbox = [50.060, 14.380, 50.102, 14.440];
-  const lon2x = (lon, z) => Math.floor((lon + 180) / 360 * 2 ** z);
-  const lat2y = (lat, z) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * 2 ** z);
-  const r = (window.devicePixelRatio || 1) > 1 ? '@2x' : '', subs = 'abcd', base = TILE(darkMode());
-  const urls = [];
-  zooms.forEach(z => { for (let x = lon2x(bbox[1], z); x <= lon2x(bbox[3], z); x++) for (let y = lat2y(bbox[2], z); y <= lat2y(bbox[0], z); y++) urls.push(base.replace('{s}', subs[Math.abs(x + y) % subs.length]).replace('{z}', z).replace('{x}', x).replace('{y}', y).replace('{r}', r)); });
-  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) { toast('Instala la app primero para guardar el mapa'); return; }
-  let done = 0, failed = 0;
-  toast(`Guardando mapa del centro (${urls.length} piezas)…`);
-  const worker = async () => { while (urls.length) { const u = urls.shift(); try { const res = await fetch(u, { mode: 'cors' }); if (!res.ok) failed++; } catch (e) { failed++; } done++; } };
-  await Promise.all(Array.from({ length: 6 }, worker));
-  toast(failed ? `Mapa guardado con ${failed} huecos. Reintenta con mejor conexión.` : 'Mapa del centro guardado para usar sin conexión');
-}
-
 /* ---------------- Gastos ---------------- */
 function scrGastos() {
   const total = db.expenses.reduce((s, e) => s + +e.amount_eur, 0);
@@ -755,7 +740,6 @@ const A = {
       mapObj.setView(ll, 16);
     }, () => toast('No se pudo obtener tu ubicación'), { enableHighAccuracy: true, timeout: 10000 });
   },
-  offlineMap: downloadTiles,
   // Gastos
   newExpense: () => openExpForm(null),
   editExpense: d => { const e = db.expenses.find(x => x.id === d.id); if (e) openExpForm(e); },
