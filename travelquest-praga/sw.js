@@ -1,16 +1,16 @@
 /* Service worker: la app funciona sin conexión con lo último que se cargó.
    Sube el número de versión si cambias la lista de archivos. */
-const VERSION = 'tq-praga-v3';
+const VERSION = 'tq-praga-v4';
 const SHELL = ['./', 'index.html', 'app.js', 'data.js', 'config.js', 'manifest.webmanifest',
-  'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/supabase.js',
+  'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/supabase.js', 'vendor/pdf.min.mjs', 'vendor/pdf.worker.min.mjs',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
-const TILES = 'tq-tiles-osm', FONTS = 'tq-fonts';
+const TILES = 'tq-tiles-osm', FONTS = 'tq-fonts', DOCS = 'tq-docs';
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => ![VERSION, TILES, FONTS].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => ![VERSION, TILES, FONTS, DOCS].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
 const timeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);

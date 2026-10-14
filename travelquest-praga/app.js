@@ -64,6 +64,8 @@ const IC = {
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>', trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
   swap: '<path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>', lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h4"/>', file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
+  camera: '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/>', clip: '<path d="M20 11.5 12 19.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L9.7 17.2a1.7 1.7 0 0 1-2.4-2.4L15 7"/>',
   phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>', search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>'
 };
 const ic = (n, s = 22) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || ''}</svg>`;
@@ -75,11 +77,11 @@ const CATS = {
 };
 
 /* ---------------- Estado y datos ---------------- */
-const db = { trip: null, members: [], activities: [], expenses: [], payments: [], quiz_answers: [], challenges_done: [] };
+const db = { trip: null, members: [], activities: [], expenses: [], payments: [], quiz_answers: [], challenges_done: [], docs: [] };
 let me = null, tripId = null, status = REMOTE ? 'connecting' : 'demo';
 let outbox = REMOTE ? LS.get('tq-outbox', []) : [];
 const ui = { tab: 'plan', day: null, mapDay: 0, focus: null, sheet: null, quiz: null, testMode: LS.get('tq-test', false), installDismissed: LS.get('tq-install-off', false) };
-const KEYS = { activities: ['id'], expenses: ['id'], payments: ['id'], members: ['id'], quiz_answers: ['member_id', 'quiz_id', 'q'], challenges_done: ['member_id', 'challenge_id'] };
+const KEYS = { activities: ['id'], expenses: ['id'], payments: ['id'], members: ['id'], quiz_answers: ['member_id', 'quiz_id', 'q'], challenges_done: ['member_id', 'challenge_id'], docs: ['id'] };
 const keyOf = (t, r) => KEYS[t].map(k => r[k]).join('|');
 
 function applyOp(op) {
@@ -103,8 +105,10 @@ const isNet = e => !navigator.onLine || /fetch|network|load failed|timeout/i.tes
 
 async function refresh() {
   if (!REMOTE || !tripId) return;
-  const T = ['members', 'activities', 'expenses', 'payments', 'quiz_answers', 'challenges_done'];
+  const T = ['members', 'activities', 'expenses', 'payments', 'quiz_answers', 'challenges_done', 'docs'];
   const res = await Promise.all([sb.from('trips').select('*').eq('id', tripId).single(), ...T.map(t => sb.from(t).select('*').eq('trip_id', tripId))]);
+  const di = T.indexOf('docs') + 1;
+  if (res[di].error && !isNet(res[di].error)) { console.warn('docs:', res[di].error.message); res[di] = { data: [] }; }
   const bad = res.find(r => r.error);
   if (bad) throw bad.error;
   db.trip = res[0].data;
@@ -114,6 +118,7 @@ async function refresh() {
   saveCache();
   if (!outbox.length) setStatus('live');
   render();
+  prefetchDocs();
 }
 async function seed() {
   const rows = D.activities.map(a => ({ ...a, trip_id: tripId, updated_by: null, updated_at: nowIso() }));
@@ -144,6 +149,7 @@ function onRemote(p) {
     if (p.table === 'activities') msg = p.eventType === 'INSERT' ? `${name} ha añadido «${n.title}»` : `${name} ha cambiado «${n.title}»`;
     else if (p.table === 'expenses' && p.eventType === 'INSERT') msg = `${name} ha apuntado: ${n.description} (${eur(+n.amount_eur)})`;
     else if (p.table === 'payments' && p.eventType === 'INSERT') msg = `${member(n.from_member).name} ha pagado ${eur(+n.amount_eur)} a ${member(n.to_member).name}`;
+    else if (p.table === 'docs' && p.eventType === 'INSERT') msg = `${name} ha subido «${n.title}»`;
     else if (p.table === 'challenges_done' && p.eventType === 'INSERT') { const c = D.challenges.find(x => x.id === n.challenge_id); msg = `${name} ha completado el reto «${c ? c.title : ''}»`; }
     if (msg) toast(msg);
   }
@@ -333,7 +339,7 @@ const isStandalone = () => window.matchMedia('(display-mode: standalone)').match
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 /* ---------------- Shell ---------------- */
-const TABS = [['plan', 'Plan', 'plan'], ['mapa', 'Mapa', 'map'], ['gastos', 'Gastos', 'wallet'], ['quiz', 'Quiz', 'trophy']];
+const TABS = [['plan', 'Plan', 'plan'], ['mapa', 'Mapa', 'map'], ['docs', 'Docs', 'ticket'], ['gastos', 'Gastos', 'wallet'], ['quiz', 'Quiz', 'trophy']];
 function showApp() {
   if (ui.day == null) { const t = todayIndex(); ui.day = t >= 0 ? t : 0; }
   app.innerHTML = `<header class="topbar"><h1 id="title">Praga</h1><span id="syncwrap">${syncPill()}</span><button class="iconbtn" data-a="settings" aria-label="Ajustes" id="mebtn"></button></header>
@@ -358,10 +364,11 @@ function render(resetScroll) {
   if (!fab.hidden) { fab.dataset.a = 'newExpense'; fab.setAttribute('aria-label', 'Añadir gasto'); fab.innerHTML = ic('plus', 28); }
   if (ui.tab !== 'mapa' && mapObj) { mapObj.remove(); mapObj = null; scr.classList.remove('map-mode'); }
   if (ui.tab === 'mapa') { $('#title').textContent = 'Mapa'; renderMap(); return; }
-  const fn = { plan: scrPlan, gastos: scrGastos, quiz: scrQuiz }[ui.tab];
-  $('#title').textContent = { plan: 'Praga', gastos: 'Gastos', quiz: 'Quiz y retos' }[ui.tab];
+  const fn = { plan: scrPlan, gastos: scrGastos, quiz: scrQuiz, docs: scrDocs }[ui.tab];
+  $('#title').textContent = { plan: 'Praga', gastos: 'Gastos', quiz: 'Quiz y retos', docs: 'Documentos' }[ui.tab];
   scr.innerHTML = fn();
   scr.scrollTop = resetScroll ? 0 : top;
+  hydrateThumbs();
 }
 
 /* ---------------- Plan ---------------- */
@@ -413,10 +420,14 @@ function scrPlan() {
   const hotel = `<section class="info"><h2 class="sec" style="margin-top:0">Hotel</h2><div class="card"><div class="act-top"><span class="tile t-gray">${ic('bed')}</span><div class="grow"><b>${esc(D.hotel.name)}</b><br><small>${esc(D.hotel.address)} · ${esc(D.hotel.note)}</small></div></div>
     <div class="actions-row"><a class="btn btn-secondary btn-sm" href="${gmapsDir(D.hotel.lat, D.hotel.lng)}" target="_blank" rel="noopener">${ic('nav', 16)}Volver al hotel</a></div></div>
     <h2 class="sec">Precios orientativos</h2><div class="card">${D.tips.map(([k, v]) => `<div class="tr"><span class="grow">${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div></section>`;
-  return `${heroHtml()}${banner}${install}${chips}<div style="--dc:${d.color}"><div class="dayhead"><span class="dot">${ic(d.icon, 24)}</span><div><h2>${esc(d.label)}</h2><small>${esc(d.theme)}</small></div></div>${slots}</div>${hotel}
+  return `${heroHtml()}${banner}${install}${chips}<div style="--dc:${d.color}"><div class="dayhead"><span class="dot">${ic(d.icon, 24)}</span><div><h2>${esc(d.label)}</h2><small>${esc(d.theme)}</small></div></div>${dayDocs(d)}${slots}</div>${hotel}
     <p class="note2">${REMOTE ? 'Los cambios se comparten al momento con el grupo.' : 'Modo demo: los cambios solo se guardan en este dispositivo.'}</p>`;
 }
 
+function dayDocs(d) {
+  const list = db.docs.filter(x => x.day === d.date);
+  return `<div class="chips" style="margin-top:12px">${list.map(x => `<button class="chip" data-a="viewDoc" data-id="${x.id}">${ic((DOC_KINDS[x.kind] || DOC_KINDS.otro)[1], 16)}${esc(x.title)}</button>`).join('')}<button class="chip" data-a="newDoc">${ic('plus', 16)}${list.length ? 'Añadir' : 'Añadir billete o entrada'}</button></div>`;
+}
 function actForm(a, isNew) {
   const f = ui.sheet.f;
   const isFood = f.slot === 'comer';
@@ -452,7 +463,7 @@ function openActForm(a, slot) {
   ui.sheet = { kind: 'act', isNew, orig: a, f: { ...a, time: a.time || '', note: a.note || '', price: a.price || '', address: a.address || '', tier: a.tier || '', itemsText: (a.items || []).map(i => i.t).join('\n') } };
   openSheet(actForm(a, isNew));
 }
-const redrawSheet = () => { const s = $('#sheet'), top = s.scrollTop; s.innerHTML = '<div class="grab"></div>' + (ui.sheet.kind === 'act' ? actForm(ui.sheet.orig, ui.sheet.isNew) : expForm()); s.scrollTop = top; };
+const redrawSheet = () => { const s = $('#sheet'), top = s.scrollTop; s.innerHTML = '<div class="grab"></div>' + (ui.sheet.kind === 'act' ? actForm(ui.sheet.orig, ui.sheet.isNew) : ui.sheet.kind === 'doc' ? docForm() : expForm()); s.scrollTop = top; };
 function saveAct() {
   readActForm();
   const f = ui.sheet.f, o = ui.sheet.orig;
@@ -557,7 +568,7 @@ function scrGastos() {
     if (dd !== lastDay) { list += `<div class="group-lbl">${esc(dateLabel(dd))}</div>`; lastDay = dd; }
     if (m.kind === 'e') {
       const e = m.e, c = CATS[e.category] || CATS.otros;
-      list += `<button class="exp" data-a="editExpense" data-id="${e.id}"><span class="tile ${c[2]}">${ic(c[1])}</span><span class="grow"><b>${esc(e.description)}</b><small>${e.payer === me ? 'Pagaste tú' : 'Pagó ' + esc(member(e.payer).name)} · entre ${(e.participants || []).length}</small></span><span class="amt">${eur(+e.amount_eur)}${e.currency === 'CZK' ? `<br><small>${czk(+e.amount)}</small>` : ''}</span></button>`;
+      list += `<button class="exp" data-a="editExpense" data-id="${e.id}"><span class="tile ${c[2]}">${ic(c[1])}</span><span class="grow"><b>${db.docs.some(x => x.expense_id === e.id) ? ic('clip', 14) + ' ' : ''}${esc(e.description)}</b><small>${e.payer === me ? 'Pagaste tú' : 'Pagó ' + esc(member(e.payer).name)} · entre ${(e.participants || []).length}</small></span><span class="amt">${eur(+e.amount_eur)}${e.currency === 'CZK' ? `<br><small>${czk(+e.amount)}</small>` : ''}</span></button>`;
     } else {
       const p = m.p;
       list += `<button class="exp" data-a="editPayment" data-id="${p.id}"><span class="tile t-green">${ic('swap')}</span><span class="grow"><b>${esc(member(p.from_member).name)} pagó a ${esc(member(p.to_member).name)}</b><small>Liquidación</small></span><span class="amt">${eur(+p.amount_eur)}</span></button>`;
@@ -584,6 +595,7 @@ function expForm() {
     <div class="lbl" style="display:flex;justify-content:space-between;align-items:center">Se divide entre<button class="btn btn-ghost btn-sm" data-a="eall">${f.participants.length === db.members.length ? 'Ninguno' : 'Todos'}</button></div>
     <div class="people">${db.members.map(m => `<button class="person ${f.participants.includes(m.id) ? 'on' : ''}" data-a="epart" data-v="${m.id}"><span class="av" style="background:${esc(m.color)}">${esc(m.name[0])}</span><span>${m.id === me ? 'Yo' : esc(m.name)}</span></button>`).join('')}</div>
     <p class="small" style="margin-top:8px">${f.participants.length && amt > 0 ? `${eur((f.currency === 'CZK' ? amt / rate() : amt) / f.participants.length)} cada uno` : ''}</p>
+    <div class="lbl">Ticket</div>${(() => { const t = db.docs.filter(x => x.expense_id === f.id); return t.length ? `<div class="card" style="padding:4px 12px">${t.map(docRow).join('')}</div>` : `<button class="btn btn-secondary btn-sm" data-a="expTicket">${ic('camera', 16)}Adjuntar foto del ticket</button>`; })()}
     <div class="actions"><button class="btn btn-primary" data-a="saveExpense">Guardar gasto</button>${ui.sheet.isNew ? '' : `<button class="btn btn-danger" data-a="delExpense">${ic('trash', 18)}Eliminar gasto</button>`}</div>`;
 }
 function readExp() { const f = ui.sheet.f; const a = $('#eamt'), d = $('#edesc'); if (a) f.amount = a.value.replace(/[^\d.,]/g, ''); if (d) f.description = d.value; }
@@ -661,6 +673,193 @@ function quizResult() {
     <div class="rgrid"><div class="rbox g"><small>Aciertos</small><b>${Q.ok}/${total}</b></div><div class="rbox b"><small>${Q.practice ? 'Repaso' : 'Tu puesto'}</small><b>${Q.practice ? '—' : pos + 'º'}</b></div></div>
     ${Q.practice ? '' : `<div class="card rank" style="padding:6px;text-align:left">${rows.map((r, i) => `<div class="r ${r.m.id === me ? 'me' : ''}"><span class="pos">${i + 1}</span><span class="av sm" style="background:${esc(r.m.color)}">${esc(r.m.name[0])}</span><span class="grow">${esc(r.m.name)}</span><span class="pts">${r.s.pts}</span></div>`).join('')}</div>`}</div>
     <div class="ov-foot"><button class="btn btn-game btn-block" data-a="qclose">Continuar</button></div>`;
+}
+
+/* ---------------- Documentos (billetes, entradas, tickets) ---------------- */
+const DOC_KINDS = {
+  billete: ['Billete', 'plane', 't-blue'], entrada: ['Entrada', 'ticket', 't-coral'], reserva: ['Reserva', 'bed', 't-violet'],
+  ticket: ['Ticket de compra', 'receipt', 't-orange'], otro: ['Otro', 'file', 't-gray']
+};
+const DOC_CACHE = 'tq-docs';
+const BUCKET = 'trip-files';
+const cachedDocs = new Set();
+const docUrls = {};
+const docKey = path => location.origin + '/__doc/' + encodeURIComponent(path);
+const isImg = d => /^image\//.test(d.mime || '');
+const isPdf = d => /pdf/.test(d.mime || '') || /\.pdf$/i.test(d.path || '');
+const fmtSize = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+
+async function initDocCache() {
+  try { const c = await caches.open(DOC_CACHE); (await c.keys()).forEach(r => { const p = r.url.split('/__doc/')[1]; if (p) cachedDocs.add(decodeURIComponent(p)); }); } catch (e) {}
+}
+async function cacheDoc(path, blob, mime) {
+  try { const c = await caches.open(DOC_CACHE); await c.put(docKey(path), new Response(blob, { headers: { 'Content-Type': mime || blob.type || 'application/octet-stream' } })); cachedDocs.add(path); return true; } catch (e) { return false; }
+}
+async function docBlob(path, allowNet = true) {
+  try { const c = await caches.open(DOC_CACHE); const r = await c.match(docKey(path)); if (r) return await r.blob(); } catch (e) {}
+  if (!REMOTE || !allowNet) return null;
+  const { data, error } = await sb.storage.from(BUCKET).download(path);
+  if (error) throw error;
+  await cacheDoc(path, data);
+  return data;
+}
+async function docUrl(d, allowNet = true) {
+  if (docUrls[d.path]) return docUrls[d.path];
+  const b = await docBlob(d.path, allowNet);
+  if (!b) return null;
+  docUrls[d.path] = URL.createObjectURL(b);
+  return docUrls[d.path];
+}
+let prefetching = false;
+async function prefetchDocs() {
+  if (!REMOTE || prefetching || !navigator.onLine) return;
+  prefetching = true;
+  let got = 0;
+  try {
+    for (const d of db.docs.slice()) {
+      if (cachedDocs.has(d.path)) continue;
+      try { await docBlob(d.path); got++; } catch (e) { if (isNet(e)) break; }
+    }
+  } finally { prefetching = false; }
+  if (got) hydrateThumbs();
+}
+function hydrateThumbs() {
+  document.querySelectorAll('img[data-thumb]').forEach(async img => {
+    const d = db.docs.find(x => x.path === img.dataset.thumb);
+    if (!d || img.src) return;
+    try { const u = await docUrl(d, navigator.onLine); if (u) img.src = u; } catch (e) {}
+  });
+}
+async function compressImage(file) {
+  if (file.size <= 2.5 * 1024 * 1024 && /jpe?g|png|webp/.test(file.type)) return { blob: file, mime: file.type };
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch (e) { bmp = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); }); }
+  const max = 2400, w = bmp.width, h = bmp.height, k = Math.min(1, max / Math.max(w, h));
+  const cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+  const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(bmp, 0, 0, cv.width, cv.height);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.9));
+  return { blob: blob || file, mime: blob ? 'image/jpeg' : file.type };
+}
+async function uploadDoc(file, meta) {
+  if (file.size > 15 * 1024 * 1024) throw new Error('too_big');
+  let blob = file, mime = file.type || 'application/octet-stream', name = file.name || 'archivo';
+  if (/^image\/(jpe?g|png|webp|heic|heif)/.test(mime)) { const c = await compressImage(file); blob = c.blob; mime = c.mime; if (mime === 'image/jpeg') name = name.replace(/\.\w+$/, '') + '.jpg'; }
+  const id = uuid();
+  const safe = name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '_').slice(-60) || 'archivo';
+  const path = `${tripId}/${id}-${safe}`;
+  if (REMOTE) {
+    if (!navigator.onLine) throw new Error('offline');
+    const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: mime, upsert: false });
+    if (error) throw error;
+    await cacheDoc(path, blob, mime);
+  } else if (!(await cacheDoc(path, blob, mime))) throw new Error('no_storage');
+  const row = { id, trip_id: tripId, kind: meta.kind, title: meta.title, path, mime, size: blob.size, day: meta.day || null, expense_id: meta.expense_id || null, created_by: me, created_at: nowIso() };
+  put('docs', row);
+  return row;
+}
+const uploadErr = e => {
+  const m = (e && e.message) || String(e);
+  if (m === 'too_big') return 'El archivo pesa más de 15 MB.';
+  if (m === 'offline' || isNet(e)) return 'Necesitas conexión para subir archivos.';
+  if (/bucket/i.test(m)) return 'Falta preparar el almacenamiento en Supabase (ejecuta supabase/files.sql).';
+  return 'No se pudo subir: ' + m;
+};
+function pickFile(accept, cb, camera) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = accept; inp.style.display = 'none';
+  if (camera) inp.setAttribute('capture', 'environment');
+  inp.onchange = () => { const f = inp.files && inp.files[0]; inp.remove(); if (f) cb(f); };
+  document.body.appendChild(inp); inp.click();
+}
+function docThumb(d, size = 52) {
+  const k = DOC_KINDS[d.kind] || DOC_KINDS.otro;
+  if (isImg(d)) return `<span class="thumb" style="width:${size}px;height:${size}px"><img data-thumb="${esc(d.path)}" alt=""></span>`;
+  return `<span class="tile ${k[2]}" style="width:${size}px;height:${size}px;border-radius:14px">${ic(isPdf(d) ? 'file' : k[1], 24)}</span>`;
+}
+function docRow(d) {
+  const day = d.day ? D.days.find(x => x.date === d.day) : null;
+  return `<button class="doc" data-a="viewDoc" data-id="${d.id}">${docThumb(d)}<span class="grow"><b>${esc(d.title)}</b><small>${esc(member(d.created_by).name)}${day ? ' · ' + esc(day.short) : ''} · ${isPdf(d) ? 'PDF' : 'Foto'}</small></span>${cachedDocs.has(d.path) ? `<span class="offl" title="Guardado en el móvil">${ic('check', 14)}</span>` : ''}</button>`;
+}
+function scrDocs() {
+  const docs = db.docs.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const head = `<div class="pad"><p class="muted" style="margin:4px 0 14px">Billetes, entradas, reservas y tickets del grupo. Se guardan en cada móvil para verlos sin conexión.</p>
+    <button class="btn btn-primary btn-block" data-a="newDoc">${ic('camera', 20)}Subir foto o PDF</button></div>`;
+  if (!docs.length) return head + `<div class="pad" style="text-align:center;padding-top:30px"><div class="tile t-blue" style="width:64px;height:64px;border-radius:20px;margin:0 auto">${ic('ticket', 32)}</div><h2 style="margin:14px 0 6px">Aún no hay documentos</h2><p class="muted">Sube las tarjetas de embarque, las entradas del crucero o la reserva del hotel. Lo que suba uno lo ven todos.</p></div>`;
+  return head + `<div class="pad">${Object.entries(DOC_KINDS).map(([k, v]) => {
+    const list = docs.filter(d => (d.kind || 'otro') === k);
+    return list.length ? `<h2 class="sec">${esc(v[0] === 'Ticket de compra' ? 'Tickets de compra' : v[0] + 's')}</h2><div class="card" style="padding:4px 12px">${list.map(docRow).join('')}</div>` : '';
+  }).join('')}<p class="note2">Consejo: para los QR, una captura de pantalla funciona igual de bien que el PDF y se abre más rápido.</p></div>`;
+}
+function docForm() {
+  const f = ui.sheet.f;
+  const preview = f.file ? `<div class="locbox">${ic(/pdf/.test(f.file.type) ? 'file' : 'camera', 18)}<span class="grow">${esc(f.file.name || 'Archivo')} · ${fmtSize(f.file.size)}</span><button class="btn btn-ghost btn-sm" data-a="docPick">Cambiar</button></div>` : '';
+  return `<h2>${f.expense_id ? 'Ticket del gasto' : 'Subir documento'}</h2>
+    ${f.file ? preview : `<div class="actions" style="margin-top:12px"><button class="btn btn-secondary" data-a="docCamera">${ic('camera', 20)}Hacer foto</button><button class="btn btn-secondary" data-a="docPick">${ic('file', 20)}Elegir foto o PDF</button></div>`}
+    ${f.expense_id ? '' : `<div class="lbl">Qué es</div><div class="chips wrap">${Object.entries(DOC_KINDS).map(([k, v]) => `<button class="chip ${f.kind === k ? 'on' : ''}" data-a="docKind" data-v="${k}">${ic(v[1], 16)}${esc(v[0])}</button>`).join('')}</div>`}
+    <div class="lbl">Nombre</div><input class="field" id="dtitle" value="${esc(f.title)}" placeholder="Tarjeta de embarque ida · Laura">
+    ${f.expense_id ? '' : `<div class="lbl">Día (opcional)</div><select class="field" id="dday"><option value="">Para todo el viaje</option>${D.days.map(d => `<option value="${d.date}" ${f.day === d.date ? 'selected' : ''}>${esc(d.label)}</option>`).join('')}</select><small style="display:block;margin-top:6px">Si eliges un día, aparecerá también en el plan de ese día.</small>`}
+    <div class="err" id="derr"></div>
+    <div class="actions"><button class="btn btn-primary" data-a="saveDoc" ${f.file ? '' : 'disabled'} id="dsave">Subir</button></div>`;
+}
+function readDocForm() { const f = ui.sheet.f, t = $('#dtitle'), d = $('#dday'); if (t) f.title = t.value; if (d) f.day = d.value; }
+function openDocForm(extra) {
+  ui.sheet = { kind: 'doc', f: { kind: 'billete', title: '', day: ui.tab === 'plan' ? D.days[ui.day].date : '', file: null, expense_id: null, ...(extra || {}) } };
+  openSheet(docForm());
+}
+function gotFile(file) {
+  if (!ui.sheet || ui.sheet.kind !== 'doc') return;
+  readDocForm();
+  const f = ui.sheet.f; f.file = file;
+  if (!f.title) f.title = (file.name || '').replace(/\.\w+$/, '').replace(/[_-]+/g, ' ').slice(0, 60) || (DOC_KINDS[f.kind] || DOC_KINDS.otro)[0];
+  redrawSheet();
+}
+async function saveDoc() {
+  readDocForm();
+  const f = ui.sheet.f, btn = $('#dsave'), err = $('#derr');
+  if (!f.file) return;
+  if (!f.title.trim()) { err.textContent = 'Ponle un nombre.'; return; }
+  btn.disabled = true; btn.textContent = 'Subiendo…';
+  try {
+    await uploadDoc(f.file, { kind: f.expense_id ? 'ticket' : f.kind, title: f.title.trim(), day: f.day || null, expense_id: f.expense_id });
+    const back = f.back; closeSheet(); toast('Subido para todo el grupo');
+    if (back) { ui.sheet = back; openSheet(expForm()); }
+  } catch (e) { err.textContent = uploadErr(e); btn.disabled = false; btn.textContent = 'Subir'; }
+}
+let pdfLib = null;
+async function renderPdf(blob, box) {
+  if (!pdfLib) { pdfLib = await import(new URL('vendor/pdf.min.mjs', location.href).href); pdfLib.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.mjs', location.href).href; }
+  const pdf = await pdfLib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
+  box.innerHTML = '';
+  const width = Math.min(box.clientWidth || 360, 900), dpr = Math.min(3, window.devicePixelRatio || 1);
+  for (let i = 1; i <= Math.min(pdf.numPages, 20); i++) {
+    const page = await pdf.getPage(i);
+    const vp1 = page.getViewport({ scale: 1 }), scale = width / vp1.width, vp = page.getViewport({ scale: scale * dpr });
+    const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; cv.style.width = '100%'; cv.className = 'pdfpage';
+    box.appendChild(cv);
+    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  }
+}
+async function viewDoc(id) {
+  const d = db.docs.find(x => x.id === id); if (!d) return;
+  closeSheet();
+  const ov = $('#ov');
+  ui.viewing = d;
+  ov.innerHTML = `<div class="ov-top"><button class="iconbtn" data-a="closeViewer" aria-label="Cerrar">${ic('close', 24)}</button><div class="grow" style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.title)}</b><small>${esc(member(d.created_by).name)} · ${fmtSize(+d.size || 0)}</small></div><button class="iconbtn" data-a="delDoc" aria-label="Eliminar">${ic('trash', 22)}</button></div>
+    <div class="ov-body viewer" id="vbox"><div class="loading" style="padding:60px 0"><div class="spin"></div></div></div>`;
+  ov.classList.add('on');
+  const box = $('#vbox');
+  try {
+    const blob = await docBlob(d.path);
+    if (!blob) throw new Error('missing');
+    if (ui.viewing !== d) return;
+    if (isImg(d)) { box.innerHTML = `<img src="${await docUrl(d)}" alt="${esc(d.title)}">`; }
+    else if (isPdf(d)) { await renderPdf(blob, box); }
+    else { const u = await docUrl(d); box.innerHTML = `<p class="muted" style="margin:30px 0 16px;text-align:center">Este tipo de archivo no se puede mostrar aquí.</p><a class="btn btn-primary btn-block" href="${u}" download="${esc(d.title)}">Descargar</a>`; }
+    hydrateThumbs();
+  } catch (e) {
+    box.innerHTML = `<p class="muted" style="text-align:center;margin-top:40px">${isNet(e) ? 'Este documento aún no está guardado en tu móvil. Ábrelo una vez con conexión.' : 'No se pudo abrir el documento.'}</p>`;
+  }
 }
 
 /* ---------------- Ajustes e instalación ---------------- */
@@ -749,6 +948,19 @@ const A = {
   epart: d => { readExp(); const p = ui.sheet.f.participants, i = p.indexOf(d.v); if (i >= 0) p.splice(i, 1); else p.push(d.v); redrawSheet(); },
   eall: () => { readExp(); const f = ui.sheet.f; f.participants = f.participants.length === db.members.length ? [] : db.members.map(m => m.id); redrawSheet(); },
   saveExpense,
+  newDoc: () => openDocForm(),
+  docPick: () => pickFile('image/*,application/pdf', gotFile),
+  docCamera: () => pickFile('image/*', gotFile, true),
+  docKind: d => { readDocForm(); ui.sheet.f.kind = d.v; redrawSheet(); },
+  saveDoc,
+  viewDoc: d => viewDoc(d.id),
+  closeViewer: () => { $('#ov').classList.remove('on'); ui.viewing = null; render(); },
+  delDoc: () => { const d = ui.viewing; if (!d) return; ask(`¿Eliminar «${d.title}» para todo el grupo?`, 'Eliminar', async () => {
+    closeSheet(); $('#ov').classList.remove('on'); ui.viewing = null; del('docs', { id: d.id });
+    try { const c = await caches.open(DOC_CACHE); await c.delete(docKey(d.path)); } catch (e) {}
+    if (REMOTE) sb.storage.from(BUCKET).remove([d.path]).catch(() => {});
+    toast('Documento eliminado'); }); },
+  expTicket: () => { readExp(); const back = ui.sheet; const f = back.f; openDocForm({ kind: 'ticket', expense_id: f.id, title: f.description ? 'Ticket · ' + f.description : 'Ticket', back }); ui.sheet.f.back = back; },
   delExpense: () => { const id = ui.sheet.orig.id; ask('¿Eliminar este gasto para todo el grupo?', 'Eliminar', () => { closeSheet(); del('expenses', { id }); toast('Gasto eliminado'); }); },
   askYes: () => { const f = pendingAsk; pendingAsk = null; if (f) f(); },
   settle: d => { put('payments', { id: uuid(), trip_id: tripId, from_member: d.from, to_member: d.to, amount_eur: +d.amt, created_by: me, created_at: nowIso() }); toast('Pago registrado'); },
@@ -799,7 +1011,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'jname') doJoin();
-  if (e.key === 'Escape') { if ($('#ov') && $('#ov').classList.contains('on')) A.qclose(); else closeSheet(); }
+  if (e.key === 'Escape') { if (ui.viewing) A.closeViewer(); else if ($('#ov') && $('#ov').classList.contains('on')) A.qclose(); else closeSheet(); }
 });
 window.addEventListener('online', () => { if (REMOTE && tripId) { flush(); refresh().catch(() => {}); } });
 window.addEventListener('offline', () => setStatus('offline'));
@@ -810,6 +1022,7 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
+initDocCache().then(() => { if (me) render(); });
 boot();
 window.__tq = { db, ui, A, get me() { return me; }, render, balances, transfers, pendingQuiz, scores };
 })();
