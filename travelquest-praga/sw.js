@@ -1,6 +1,6 @@
 /* Service worker: la app funciona sin conexión con lo último que se cargó.
    Sube el número de versión si cambias la lista de archivos. */
-const VERSION = 'tq-praga-v2';
+const VERSION = 'tq-praga-v3';
 const SHELL = ['./', 'index.html', 'app.js', 'data.js', 'config.js', 'manifest.webmanifest',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/supabase.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
